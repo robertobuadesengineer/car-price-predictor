@@ -15,6 +15,24 @@ st.set_page_config(
 
 
 # ==========================================
+# CARGAR MODELO Y OPCIONES
+# ==========================================
+
+@st.cache_resource
+def cargar_modelo():
+    return joblib.load("modelo_coches.pkl")
+
+
+@st.cache_data
+def cargar_opciones():
+    return pd.read_csv("data/opciones.csv")
+
+
+modelo = cargar_modelo()
+opciones = cargar_opciones()
+
+
+# ==========================================
 # TÍTULO
 # ==========================================
 
@@ -23,19 +41,7 @@ st.subheader("Predicción inteligente del precio de coches")
 
 
 # ==========================================
-# CARGAR MODELO
-# ==========================================
-
-@st.cache_resource
-def cargar_modelo():
-    return joblib.load("modelo_coches.pkl")
-
-
-modelo = cargar_modelo()
-
-
-# ==========================================
-# OBTENER OPCIONES DEL MODELO
+# OPCIONES DEL MODELO
 # ==========================================
 
 categorical_features = [
@@ -50,7 +56,6 @@ categorical_features = [
     "personal_use_only"
 ]
 
-
 encoder = (
     modelo
     .named_steps["preprocessor"]
@@ -58,8 +63,7 @@ encoder = (
     .named_steps["encoder"]
 )
 
-
-opciones = dict(
+categorias_modelo = dict(
     zip(
         categorical_features,
         encoder.categories_
@@ -68,7 +72,7 @@ opciones = dict(
 
 
 # ==========================================
-# DATOS DEL COCHE
+# SELECCIÓN DEL VEHÍCULO
 # ==========================================
 
 st.markdown("### 🚘 Características del vehículo")
@@ -76,17 +80,158 @@ st.markdown("### 🚘 Características del vehículo")
 col1, col2, col3 = st.columns(3)
 
 
+# ==========================================
+# FABRICANTE
+# ==========================================
+
+fabricantes = sorted(
+    opciones["manufacturer"]
+    .dropna()
+    .unique()
+)
+
 with col1:
 
     manufacturer = st.selectbox(
         "Fabricante",
-        opciones["manufacturer"]
+        fabricantes
     )
+
+
+# ==========================================
+# MODELO
+# ==========================================
+
+modelos = sorted(
+    opciones[
+        opciones["manufacturer"] == manufacturer
+    ]["model"]
+    .dropna()
+    .unique()
+)
+
+with col1:
 
     model = st.selectbox(
         "Modelo",
-        opciones["model"]
+        modelos
     )
+
+
+# ==========================================
+# FILTRAR FABRICANTE + MODELO
+# ==========================================
+
+config = opciones[
+    (opciones["manufacturer"] == manufacturer) &
+    (opciones["model"] == model)
+].copy()
+
+
+# ==========================================
+# MOTOR
+# ==========================================
+
+motores = sorted(
+    config["engine"]
+    .dropna()
+    .unique()
+)
+
+with col2:
+
+    engine = st.selectbox(
+        "Motor",
+        motores
+    )
+
+
+# ==========================================
+# FILTRAR MOTOR
+# ==========================================
+
+config_motor = config[
+    config["engine"] == engine
+]
+
+
+# ==========================================
+# TRANSMISIÓN
+# ==========================================
+
+transmisiones = sorted(
+    config_motor["transmission"]
+    .dropna()
+    .unique()
+)
+
+with col2:
+
+    transmission = st.selectbox(
+        "Transmisión",
+        transmisiones
+    )
+
+
+# ==========================================
+# FILTRAR TRANSMISIÓN
+# ==========================================
+
+config_trans = config_motor[
+    config_motor["transmission"] == transmission
+]
+
+
+# ==========================================
+# TRACCIÓN
+# ==========================================
+
+tracciones = sorted(
+    config_trans["drivetrain"]
+    .dropna()
+    .unique()
+)
+
+with col2:
+
+    drivetrain = st.selectbox(
+        "Tracción",
+        tracciones
+    )
+
+
+# ==========================================
+# FILTRAR TRACCIÓN
+# ==========================================
+
+config_drive = config_trans[
+    config_trans["drivetrain"] == drivetrain
+]
+
+
+# ==========================================
+# COMBUSTIBLE
+# ==========================================
+
+combustibles = sorted(
+    config_drive["fuel_type"]
+    .dropna()
+    .unique()
+)
+
+with col3:
+
+    fuel_type = st.selectbox(
+        "Combustible",
+        combustibles
+    )
+
+
+# ==========================================
+# AÑO
+# ==========================================
+
+with col1:
 
     year = st.number_input(
         "Año",
@@ -95,6 +240,13 @@ with col1:
         value=2020,
         step=1
     )
+
+
+# ==========================================
+# KILOMETRAJE
+# ==========================================
+
+with col1:
 
     mileage = st.number_input(
         "Kilometraje (km)",
@@ -105,30 +257,11 @@ with col1:
     )
 
 
+# ==========================================
+# MPG
+# ==========================================
+
 with col2:
-
-    engine = st.selectbox(
-        "Motor",
-        opciones["engine"]
-    )
-
-    transmission = st.selectbox(
-        "Transmisión",
-        opciones["transmission"]
-    )
-
-    drivetrain = st.selectbox(
-        "Tracción",
-        opciones["drivetrain"]
-    )
-
-    fuel_type = st.selectbox(
-        "Combustible",
-        opciones["fuel_type"]
-    )
-
-
-with col3:
 
     mpg = st.number_input(
         "MPG",
@@ -138,19 +271,52 @@ with col3:
         step=0.5
     )
 
-    accidents_or_damage = st.selectbox(
+
+# ==========================================
+# ACCIDENTES / DAÑOS
+# ==========================================
+
+accidentes = sorted(
+    [str(x) for x in categorias_modelo["accidents_or_damage"]]
+)
+
+with col3:
+
+    accidentes_or_damage = st.selectbox(
         "Accidentes o daños",
-        opciones["accidents_or_damage"]
+        accidentes
     )
+
+
+# ==========================================
+# UN SOLO PROPIETARIO
+# ==========================================
+
+propietarios = sorted(
+    [str(x) for x in categorias_modelo["one_owner"]]
+)
+
+with col3:
 
     one_owner = st.selectbox(
         "Un solo propietario",
-        opciones["one_owner"]
+        propietarios
     )
+
+
+# ==========================================
+# USO PERSONAL
+# ==========================================
+
+uso_personal = sorted(
+    [str(x) for x in categorias_modelo["personal_use_only"]]
+)
+
+with col3:
 
     personal_use_only = st.selectbox(
         "Solo uso personal",
-        opciones["personal_use_only"]
+        uso_personal
     )
 
 
@@ -160,7 +326,10 @@ with col3:
 
 st.markdown("---")
 
-if st.button("💰 PREDECIR PRECIO", use_container_width=True):
+if st.button(
+    "💰 PREDECIR PRECIO",
+    use_container_width=True
+):
 
     datos = pd.DataFrame([{
         "manufacturer": manufacturer,
@@ -172,7 +341,7 @@ if st.button("💰 PREDECIR PRECIO", use_container_width=True):
         "drivetrain": drivetrain,
         "fuel_type": fuel_type,
         "mpg": mpg,
-        "accidents_or_damage": accidents_or_damage,
+        "accidents_or_damage": accidentes_or_damage,
         "one_owner": one_owner,
         "personal_use_only": personal_use_only
     }])
@@ -181,11 +350,6 @@ if st.button("💰 PREDECIR PRECIO", use_container_width=True):
 
     st.success(
         f"💰 PRECIO ESTIMADO: {prediccion:,.2f} €"
-    )
-
-    st.info(
-        "La estimación ha sido generada mediante el modelo "
-        "de Machine Learning entrenado con 100.000 vehículos."
     )
 
 
@@ -199,19 +363,25 @@ st.markdown("### 📊 Información del modelo")
 
 col1, col2, col3 = st.columns(3)
 
+
 with col1:
+
     st.metric(
         "Vehículos de entrenamiento",
         "100.000"
     )
 
+
 with col2:
+
     st.metric(
         "R²",
         "86,56%"
     )
 
+
 with col3:
+
     st.metric(
         "Error medio",
         "4.116 €"
