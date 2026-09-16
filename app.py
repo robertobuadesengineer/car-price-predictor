@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import joblib
 
+
 # ==========================================
 # CONFIGURACIÓN
 # ==========================================
@@ -12,8 +13,17 @@ st.set_page_config(
     layout="wide"
 )
 
+
 # ==========================================
-# CARGAR MODELO Y DATOS
+# TÍTULO
+# ==========================================
+
+st.title("🚗 AutoValue AI")
+st.subheader("Predicción inteligente del precio de coches")
+
+
+# ==========================================
+# CARGAR MODELO
 # ==========================================
 
 @st.cache_resource
@@ -21,325 +31,193 @@ def cargar_modelo():
     return joblib.load("modelo_coches.pkl")
 
 
-@st.cache_data
-def cargar_datos():
-    return pd.read_csv("data/cars.csv")
+modelo = cargar_modelo()
 
-
-model = cargar_modelo()
-df = cargar_datos()
 
 # ==========================================
-# CABECERA
+# OBTENER OPCIONES DEL MODELO
 # ==========================================
 
-st.title("🚗 AutoValue AI")
-st.subheader("Predicción inteligente del precio de coches")
-
-st.write(
-    "Introduce las características del vehículo y "
-    "obtén una estimación de su precio."
-)
-
-st.divider()
-
-# ==========================================
-# SELECCIÓN DEL COCHE
-# ==========================================
-
-col1, col2 = st.columns(2)
-
-with col1:
-
-    marcas = sorted(
-        df["manufacturer"]
-        .dropna()
-        .unique()
-    )
-
-    marca = st.selectbox(
-        "🏭 Marca",
-        marcas
-    )
-
-with col2:
-
-    modelos = sorted(
-        df[
-            df["manufacturer"] == marca
-        ]["model"]
-        .dropna()
-        .unique()
-    )
-
-    modelo = st.selectbox(
-        "🚘 Modelo",
-        modelos
-    )
-
-# ==========================================
-# FILTRAR DATOS DEL COCHE
-# ==========================================
-
-coches_filtrados = df[
-    (df["manufacturer"] == marca) &
-    (df["model"] == modelo)
+categorical_features = [
+    "manufacturer",
+    "model",
+    "engine",
+    "transmission",
+    "drivetrain",
+    "fuel_type",
+    "accidents_or_damage",
+    "one_owner",
+    "personal_use_only"
 ]
 
+
+encoder = (
+    modelo
+    .named_steps["preprocessor"]
+    .named_transformers_["cat"]
+    .named_steps["encoder"]
+)
+
+
+opciones = dict(
+    zip(
+        categorical_features,
+        encoder.categories_
+    )
+)
+
+
 # ==========================================
-# CARACTERÍSTICAS
+# DATOS DEL COCHE
 # ==========================================
 
-st.divider()
-
-st.subheader("🔧 Características del vehículo")
+st.markdown("### 🚘 Características del vehículo")
 
 col1, col2, col3 = st.columns(3)
 
-with col1:
-
-    motores = sorted(
-        coches_filtrados["engine"]
-        .dropna()
-        .unique()
-    )
-
-    motor = st.selectbox(
-        "⚙️ Motor",
-        motores
-    )
-
-with col2:
-
-    transmisiones = sorted(
-        coches_filtrados["transmission"]
-        .dropna()
-        .unique()
-    )
-
-    transmision = st.selectbox(
-        "⚙️ Transmisión",
-        transmisiones
-    )
-
-with col3:
-
-    combustibles = sorted(
-        coches_filtrados["fuel_type"]
-        .dropna()
-        .unique()
-    )
-
-    combustible = st.selectbox(
-        "⛽ Combustible",
-        combustibles
-    )
-
-# ==========================================
-# DATOS NUMÉRICOS
-# ==========================================
-
-col1, col2 = st.columns(2)
 
 with col1:
 
-    año = st.number_input(
-        "📅 Año",
-        min_value=1950,
+    manufacturer = st.selectbox(
+        "Fabricante",
+        opciones["manufacturer"]
+    )
+
+    model = st.selectbox(
+        "Modelo",
+        opciones["model"]
+    )
+
+    year = st.number_input(
+        "Año",
+        min_value=1980,
         max_value=2026,
         value=2020,
         step=1
     )
 
-with col2:
-
-    kilometraje = st.number_input(
-        "🛣️ Kilometraje",
+    mileage = st.number_input(
+        "Kilometraje (km)",
         min_value=0,
         max_value=1000000,
         value=60000,
         step=1000
     )
 
-# ==========================================
-# DATOS ADICIONALES
-# ==========================================
-
-st.subheader("📋 Información adicional")
-
-col1, col2 = st.columns(2)
-
-with col1:
-
-    drivetrains = sorted(
-        coches_filtrados["drivetrain"]
-        .dropna()
-        .unique()
-    )
-
-    if len(drivetrains) > 0:
-        drivetrain = st.selectbox(
-            "🚙 Tracción",
-            drivetrains
-        )
-    else:
-        drivetrain = None
 
 with col2:
 
-    mpg_values = coches_filtrados["mpg"].dropna()
-
-    mpg = None
-
-    if len(mpg_values) > 0:
-        mpg = st.number_input(
-            "⛽ MPG",
-            min_value=0.0,
-            max_value=200.0,
-            value=30.0,
-            step=0.1
-        )
-
-# ==========================================
-# HISTORIAL
-# ==========================================
-
-col1, col2 = st.columns(2)
-
-with col1:
-
-    accidentes = st.selectbox(
-        "💥 ¿Tiene accidentes o daños?",
-        ["No", "Yes"]
+    engine = st.selectbox(
+        "Motor",
+        opciones["engine"]
     )
 
-with col2:
-
-    propietario = st.selectbox(
-        "👤 ¿Un solo propietario?",
-        ["No", "Yes"]
+    transmission = st.selectbox(
+        "Transmisión",
+        opciones["transmission"]
     )
 
-uso_personal = st.selectbox(
-    "🚗 ¿Uso exclusivamente personal?",
-    ["No", "Yes"]
-)
+    drivetrain = st.selectbox(
+        "Tracción",
+        opciones["drivetrain"]
+    )
+
+    fuel_type = st.selectbox(
+        "Combustible",
+        opciones["fuel_type"]
+    )
+
+
+with col3:
+
+    mpg = st.number_input(
+        "MPG",
+        min_value=1.0,
+        max_value=150.0,
+        value=30.0,
+        step=0.5
+    )
+
+    accidents_or_damage = st.selectbox(
+        "Accidentes o daños",
+        opciones["accidents_or_damage"]
+    )
+
+    one_owner = st.selectbox(
+        "Un solo propietario",
+        opciones["one_owner"]
+    )
+
+    personal_use_only = st.selectbox(
+        "Solo uso personal",
+        opciones["personal_use_only"]
+    )
+
 
 # ==========================================
 # PREDICCIÓN
 # ==========================================
 
-st.divider()
+st.markdown("---")
 
-if st.button(
-    "💰 CALCULAR PRECIO",
-    use_container_width=True
-):
+if st.button("💰 PREDECIR PRECIO", use_container_width=True):
 
-    # --------------------------------------
-    # Crear DataFrame con TODAS las columnas
-    # que necesita el modelo
-    # --------------------------------------
-
-    coche = pd.DataFrame([{
-        "manufacturer": marca,
-        "model": modelo,
-        "year": año,
-        "mileage": kilometraje,
-        "engine": motor,
-        "transmission": transmision,
+    datos = pd.DataFrame([{
+        "manufacturer": manufacturer,
+        "model": model,
+        "year": year,
+        "mileage": mileage,
+        "engine": engine,
+        "transmission": transmission,
         "drivetrain": drivetrain,
-        "fuel_type": combustible,
+        "fuel_type": fuel_type,
         "mpg": mpg,
-        "accidents_or_damage": accidentes,
-        "one_owner": propietario,
-        "personal_use_only": uso_personal
+        "accidents_or_damage": accidents_or_damage,
+        "one_owner": one_owner,
+        "personal_use_only": personal_use_only
     }])
 
-    # --------------------------------------
-    # Predicción
-    # --------------------------------------
+    prediccion = modelo.predict(datos)[0]
 
-    try:
+    st.success(
+        f"💰 PRECIO ESTIMADO: {prediccion:,.2f} €"
+    )
 
-        precio = model.predict(coche)[0]
+    st.info(
+        "La estimación ha sido generada mediante el modelo "
+        "de Machine Learning entrenado con 100.000 vehículos."
+    )
 
-        precio = max(0, precio)
-
-        st.success("✅ Predicción realizada correctamente")
-
-        st.metric(
-            "💰 PRECIO ESTIMADO",
-            f"{precio:,.2f} €"
-        )
-
-        st.divider()
-
-        st.subheader("📋 Datos utilizados")
-
-        resultado = pd.DataFrame({
-            "Característica": [
-                "Marca",
-                "Modelo",
-                "Año",
-                "Kilometraje",
-                "Motor",
-                "Transmisión",
-                "Tracción",
-                "Combustible"
-            ],
-            "Valor": [
-                marca,
-                modelo,
-                año,
-                f"{kilometraje:,} km",
-                motor,
-                transmision,
-                drivetrain,
-                combustible
-            ]
-        })
-
-        st.dataframe(
-            resultado,
-            use_container_width=True,
-            hide_index=True
-        )
-
-    except Exception as e:
-
-        st.error(
-            f"❌ Error al realizar la predicción: {e}"
-        )
 
 # ==========================================
 # INFORMACIÓN DEL MODELO
 # ==========================================
 
-st.divider()
+st.markdown("---")
 
-st.subheader("🤖 Información del modelo")
+st.markdown("### 📊 Información del modelo")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
     st.metric(
-        "🚗 Coches de entrenamiento",
+        "Vehículos de entrenamiento",
         "100.000"
     )
 
 with col2:
     st.metric(
-        "📊 R²",
-        "86,56 %"
+        "R²",
+        "86,56%"
     )
 
 with col3:
     st.metric(
-        "💶 Error medio",
-        "4.116,13 €"
+        "Error medio",
+        "4.116 €"
     )
 
+
 st.caption(
-    "AutoValue AI — Modelo de predicción basado en aprendizaje automático."
+    "AutoValue AI — Predicción de precios de vehículos mediante Machine Learning"
 )
